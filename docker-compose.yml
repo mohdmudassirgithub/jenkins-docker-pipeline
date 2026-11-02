@@ -1,0 +1,43 @@
+services:
+  app:
+    image: ${APP_IMAGE:-registry.example.com/payment-api:dev-latest}
+    container_name: payment-api
+    restart: unless-stopped
+    env_file:
+      - ${ENV_FILE:-env/dev.env}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks: [appnet]
+
+  db:
+    image: postgres:16-alpine
+    container_name: payment-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-appuser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_NAME:-appdb}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-appuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [appnet]
+
+volumes:
+  db-data:
+
+networks:
+  appnet:
+    driver: bridge
